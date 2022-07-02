@@ -1,0 +1,206 @@
+blueprint:
+  name: Automatic Backups
+  description: |
+    Create backups each day and keep them for a configurable amount of time, backups are stored less frequently the older they are.
+
+    By default all backups are full backups, besides the 3-hourly backups which only include the configuration.
+
+    **Template Variables:**
+    - `name` — backup name configured below
+    - `password` — backup password configured below
+    - `keep_days` — days the backup is kept for based on the current backup type
+    - `backup_type` — current schedule being created, e.g., `daily`, `weekly`, `monthly`
+
+    **Note: requires the [Auto Backup](https://jcwillox.github.io/hass-auto-backup) custom integration.**
+  domain: automation
+  input:
+    backup_name:
+      name: "Name template used for backups"
+      default: |
+        {{ backup_type | title }}Backup: {{
+          now().strftime(
+            "%A, "
+            ~ iif(backup_type == "hourly", "%-I:%M %p, ", "")
+            ~ "%B %-d, %Y"
+          )
+        }}
+        {# HourlyBackup: Monday, 3:04 PM, January 2, 2006 #}
+        {# DailyBackup: Monday, January 2, 2006 #}
+      selector:
+        template:
+    backup_time:
+      name: "Time of day to create backups"
+      default: "02:30:00"
+      selector:
+        time:
+    backup_password:
+      name: "Backup Password (Optional)"
+      default: ""
+      selector:
+        text:
+          type: password
+    enable_hourly:
+      name: "Enable: Hourly Backups"
+      description: "Create a backup every 3 hours and store for 2 days"
+      default: false
+      selector:
+        boolean:
+    enable_daily:
+      name: "Enable: Daily Backups"
+      description: "Create a backup each day and store for a week"
+      default: true
+      selector:
+        boolean:
+    enable_weekly:
+      name: "Enable: Weekly Backups"
+      description: "Create a backup each week and store for a month"
+      default: true
+      selector:
+        boolean:
+    enable_monthly:
+      name: "Enable: Monthly Backups"
+      description: "Create a backup each month and store for a year"
+      default: true
+      selector:
+        boolean:
+    enable_yearly:
+      name: "Enable: Yearly Backups"
+      description: "Create a backup each year and store forever"
+      default: true
+      selector:
+        boolean:
+
+    use_action_hourly:
+      name: "Use Backup Action for Hourly Backups Only"
+      description: "Otherwise, it will be used for all backup types"
+      default: true
+      selector:
+        boolean:
+
+    backup_action:
+      name: "Backup Action (Optional)"
+      description: |
+        Optionally override the built-in backup action with a custom action, designed to allow greater control over what is included in each backup.
+
+        By default this only overrides the 3-hourly backups, so they only include the configuration.
+      default:
+        - service: auto_backup.backup
+          data:
+            name: "{{ name }}"
+            password: "{{ password }}"
+            keep_days: "{{ keep_days }}"
+            include_folders:
+              - config
+      selector:
+        action:
+
+    condition:
+      name: Condition (Optional)
+      description: Condition to test before any action
+      default: []
+      selector:
+        action:
+
+mode: single
+
+variables:
+  password: !input backup_password
+  enable_hourly: !input enable_hourly
+  enable_daily: !input enable_daily
+  enable_weekly: !input enable_weekly
+  enable_monthly: !input enable_monthly
+  enable_yearly: !input enable_yearly
+  use_action_hourly: !input use_action_hourly
+
+trigger:
+  - id: daily
+    platform: time
+    at: !input backup_time
+  - id: hourly
+    enabled: !input enable_hourly
+    platform: time_pattern
+    hours: "/3"
+
+condition: !input condition
+
+action:
+  - if:
+      condition: trigger
+      id: daily
+    then:
+      - choose:
+          ### YEARLY ###
+          - conditions:
+              - "{{ enable_yearly }}"
+              - "{{ now().day == 1 and now().month == 1 }}"
+            sequence:
+              - variables:
+                  backup_type: yearly
+                  keep_days: null
+              - &vars
+                variables:
+                  name: !input backup_name
+                  backup_action: !input backup_action
+              - &action
+                if:
+                  - "{{ not use_action_hourly }}"
+                  - "{{ backup_action | length > 0 }}"
+                then: !input backup_action
+                else:
+                  - alias: "Creating a full backup (default action)"
+                    service: auto_backup.backup
+                    data:
+                      name: "{{ name }}"
+                      password: "{{ password }}"
+                      keep_days: "{{ keep_days }}"
+
+          ### MONTHLY ###
+          - conditions:
+              - "{{ enable_monthly }}"
+              - "{{ now().day == 1 }}"
+            sequence:
+              - variables:
+                  backup_type: monthly
+                  keep_days: 365
+              - *vars
+              - *action
+
+          ### WEEKLY ###
+          - conditions:
+              - "{{ enable_weekly }}"
+              - "{{ now().weekday() == 0 }}"
+            sequence:
+              - variables:
+                  backup_type: weekly
+                  keep_days: 30.4167
+              - *vars
+              - *action
+
+          ### DAILY ###
+          - conditions:
+              - "{{ enable_daily }}"
+            sequence:
+              - variables:
+                  backup_type: daily
+                  keep_days: 7
+              - *vars
+              - *action
+
+    ### HOURLY ###
+    else:
+      - variables:
+          backup_type: hourly
+          keep_days: 2
+      - *vars
+      - if: "{{ backup_action | length > 0 }}"
+        then: !input backup_action
+        else:
+          - alias: "Creating a partial backup (default action)"
+            service: auto_backup.backup
+            data:
+              name: "{{ name }}"
+              password: "{{ password }}"
+              keep_days: "{{ keep_days }}"
+              include_folders:
+                - config
+
