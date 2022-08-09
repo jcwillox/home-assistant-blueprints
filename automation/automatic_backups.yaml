@@ -16,6 +16,8 @@ blueprint:
   input:
     backup_name:
       name: "Name template used for backups"
+      description: |
+        On Home Assistant Core (non-supervised) this field will need to be blank as it's not supported
       default: |
         {{ backup_type | title }}Backup: {{
           now().strftime(
@@ -82,7 +84,7 @@ blueprint:
       description: |
         Optionally override the built-in backup action with a custom action, designed to allow greater control over what is included in each backup.
 
-        By default this only overrides the 3-hourly backups, so they only include the configuration.
+        By default this only overrides the 3-hourly backups, so that they only include the configuration.
       default:
         - service: auto_backup.backup
           data:
