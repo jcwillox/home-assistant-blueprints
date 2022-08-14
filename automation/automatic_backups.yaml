@@ -16,8 +16,6 @@ blueprint:
   input:
     backup_name:
       name: "Name template used for backups"
-      description: |
-        On Home Assistant Core (non-supervised) this field will need to be blank as it's not supported
       default: |
         {{ backup_type | title }}Backup: {{
           now().strftime(
