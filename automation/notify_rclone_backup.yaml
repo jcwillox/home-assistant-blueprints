@@ -1,0 +1,148 @@
+blueprint:
+  name: Notify - Rclone Backup
+  description: |
+    Send notifications based on events created by the [Rclone Backup](https://github.com/jcwillox/hassio-rclone-backup) add-on, such as when a job fails.
+
+    **Note: requires the [Rclone Backup](https://github.com/jcwillox/hassio-rclone-backup) add-on.**
+  domain: automation
+  input:
+    events:
+      name: "Events"
+      description: "Which events to send notifications"
+      default:
+        - rclone_backup.job_successful
+        - rclone_backup.job_failed
+      selector:
+        select:
+          multiple: true
+          mode: dropdown
+          options:
+            - label: Job Successful
+              value: rclone_backup.job_successful
+            - label: Job Failed
+              value: rclone_backup.job_failed
+
+    commands:
+      name: "Commands"
+      description: "Which commands to send notifications"
+      default:
+        - sync
+        - copy
+        - move
+      selector:
+        select:
+          multiple: true
+          custom_value: true
+          mode: dropdown
+          options:
+            - sync
+            - copy
+            - move
+
+    notify_hass:
+      name: Send to Home Assistant
+      description: Send to Home Assistant as a persistent notification
+      default: false
+      selector:
+        boolean:
+
+    devices:
+      name: Mobile Devices
+      description: Send notifications to mobile devices
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+    only_after:
+      name: Only after
+      description: Only send notifications to mobile devices after this time
+      default: 00:00:00
+      selector:
+        time:
+
+    only_before:
+      name: Only before
+      description: Only send notifications to mobile devices before this time
+      default: 00:00:00
+      selector:
+        time:
+
+mode: parallel
+
+variables:
+  notify_hass: !input notify_hass
+  commands: !input commands
+
+trigger:
+  platform: event
+  event_type: !input events
+
+condition: "{{ trigger.event.data.command in commands }}"
+
+action:
+  - choose:
+    - conditions: '{{ trigger.event.event_type == "rclone_backup.job_successful" }}'
+      sequence:
+        - variables:
+            notify_title: "Job Successful: {{ trigger.event.data.name }}"
+            notify_message: |
+              {% if trigger.event.data.destination %}
+                {{ trigger.event.data.source }} -> {{ trigger.event.data.destination }}
+              {% else %}
+                {{ trigger.event.data.source }}
+              {% endif %}
+              in {{ trigger.event.data.duration }}
+            notify_data:
+              tag: "rclone-backup-{{ trigger.event.data.name }}"
+              group: "rclone-backup"
+              url: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
+              clickAction: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
+              notification_icon: "mdi:cloud-sync"
+
+        - &notify
+          if: "{{ True }}"
+          then:
+            - if:
+                condition: time
+                after: !input only_after
+                before: !input only_before
+              then:
+                - alias: "Send notifications to mobile devices"
+                  repeat:
+                    for_each: !input devices
+                    sequence:
+                      - alias: "Notify mobile device"
+                        service: notify.mobile_app_{{ device_attr(repeat.item, "name") | slugify }}
+                        data:
+                          title: "{{ notify_title }}"
+                          message: "{{ notify_message }}"
+                          data: "{{ notify_data }}"
+
+            - if: "{{ notify_hass }}"
+              then:
+                - alias: "Send a notification to HA"
+                  service: persistent_notification.create
+                  data:
+                    title: "{{ notify_title }}"
+                    message: "{{ notify_message }}"
+
+    - conditions: '{{ trigger.event.event_type == "rclone_backup.job_failed" }}'
+      sequence:
+        - variables:
+            notify_title: "Job Failed: {{ trigger.event.data.name }}"
+            notify_message: |
+              {% if trigger.event.data.destination %}
+                {{ trigger.event.data.source }} -> {{ trigger.event.data.destination }}
+              {% else %}
+                {{ trigger.event.data.source }}
+              {% endif %}
+              in {{ trigger.event.data.duration }}
+            notify_data:
+              tag: "rclone-backup-{{ trigger.event.data.name }}"
+              group: "rclone-backup"
+              url: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
+              clickAction: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
+              notification_icon: "mdi:cloud-alert"
+        - *notify
