@@ -72,10 +72,11 @@ action:
             notify_title: "Backup Started"
             notify_message: "{{ trigger.event.data.name }}"
             notify_data:
+              <<: &notify_data
+                group: "Auto Backup"
+                url: &url /hassio/backups
+                clickAction: *url
               tag: "auto-backup-{{ trigger.event.data.name }}"
-              group: "auto-backup"
-              url: /hassio/backups
-              clickAction: /hassio/backups
               notification_icon: "mdi:package-variant"
 
         - &notify
@@ -112,10 +113,8 @@ action:
             notify_title: "Backup Successful"
             notify_message: "{{ trigger.event.data.name }}"
             notify_data:
+              <<: *notify_data
               tag: "auto-backup-{{ trigger.event.data.name }}"
-              group: "auto-backup"
-              url: /hassio/backups
-              clickAction: /hassio/backups
               notification_icon: "mdi:package-variant-closed"
         - *notify
 
@@ -127,10 +126,8 @@ action:
               {{ trigger.event.data.name }}
               {{ trigger.event.data.error }}
             notify_data:
+              <<: *notify_data
               tag: "auto-backup-{{ trigger.event.data.name }}"
-              group: "auto-backup"
-              url: /hassio/backups
-              clickAction: /hassio/backups
               notification_icon: "mdi:package-variant-closed-remove"
         - *notify
 
@@ -140,8 +137,6 @@ action:
             notify_title: "Backup(s) Purged"
             notify_message: "{{ trigger.event.data.backups | join(', ') }}"
             notify_data:
-              group: "auto-backup"
-              url: /hassio/backups
-              clickAction: /hassio/backups
+              <<: *notify_data
               notification_icon: "mdi:package-variant-closed-minus"
         - *notify
