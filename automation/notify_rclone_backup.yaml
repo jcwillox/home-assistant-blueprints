@@ -82,24 +82,30 @@ trigger:
 condition: "{{ trigger.event.data.command in commands }}"
 
 action:
+  - variables:
+      notify_message: |
+        <b>{{ trigger.event.data.name }}</b>
+        {% if trigger.event.data.error -%}
+          [Error] {{ trigger.event.data.error }}
+        {% endif -%}
+        {% if trigger.event.data.destination -%}
+          [Target] <b>{{ trigger.event.data.source }}</b> -> <b>{{ trigger.event.data.destination }}</b>
+        {% else -%}
+          [Source] <b>{{ trigger.event.data.source }}</b>
+        {% endif -%}
+        [Duration] <span style="color: limegreen">{{ trigger.event.data.duration }}</span>
+
   - choose:
     - conditions: '{{ trigger.event.event_type == "rclone_backup.job_successful" }}'
       sequence:
         - variables:
-            notify_title: "Job Successful: {{ trigger.event.data.name }}"
-            notify_message: |
-              {% if trigger.event.data.destination %}
-                {{ trigger.event.data.source }} -> {{ trigger.event.data.destination }}
-              {% else %}
-                {{ trigger.event.data.source }}
-              {% endif %}
-              in {{ trigger.event.data.duration }}
+            notify_title: "Rclone Backup: Successful"
             notify_data:
-              tag: "rclone-backup-{{ trigger.event.data.name }}"
-              group: "rclone-backup"
-              url: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
-              clickAction: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
-              notification_icon: "mdi:cloud-sync"
+              <<: &notify_data
+                group: "Rclone Backup"
+                url: &url "/_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup"
+                clickAction: *url
+              notification_icon: "mdi:cloud-check"
 
         - &notify
           if: "{{ True }}"
@@ -126,23 +132,16 @@ action:
                   service: persistent_notification.create
                   data:
                     title: "{{ notify_title }}"
-                    message: "{{ notify_message }}"
+                    message: |
+                      {{ notify_message }}
+
+                      [[Addon]](/_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup)
 
     - conditions: '{{ trigger.event.event_type == "rclone_backup.job_failed" }}'
       sequence:
         - variables:
-            notify_title: "Job Failed: {{ trigger.event.data.name }}"
-            notify_message: |
-              {% if trigger.event.data.destination %}
-                {{ trigger.event.data.source }} -> {{ trigger.event.data.destination }}
-              {% else %}
-                {{ trigger.event.data.source }}
-              {% endif %}
-              in {{ trigger.event.data.duration }}
+            notify_title: "Rclone Backup: Failed"
             notify_data:
-              tag: "rclone-backup-{{ trigger.event.data.name }}"
-              group: "rclone-backup"
-              url: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
-              clickAction: /_my_redirect/supervisor_addon?addon=19a172aa_rclone_backup&repository_url=https%3A%2F%2Fgithub.com%2Fjcwillox%2Fhassio-rclone-backup
+              <<: *notify_data
               notification_icon: "mdi:cloud-alert"
         - *notify
