@@ -8,7 +8,9 @@ try:
 except ImportError:
     raise ImportError("Please install md-template: pip install md-template[full]")
 
-IMPORT_BADGE = "[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url={0})"
+IMPORT_BADGE = "[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint " \
+               "pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](" \
+               "https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url={0}) "
 
 
 yaml.SafeLoader.add_constructor("!input", lambda a, b: None)
@@ -29,7 +31,7 @@ class BlueprintTemplate(TableTemplate):
             f"[**{name}**]({path.as_posix()})\n{desc}",
             IMPORT_BADGE.format(
                 urllib.parse.quote(
-                    f"https://raw.githubusercontent.com/{self.repository.owner}/{self.repository.name}/{self.repository.branch}/{path.as_posix()}"
+                    f"https://github.com/jcwillox/{self.repository.name}/blob/main/{path.as_posix()}"
                 )
             ),
         ]
