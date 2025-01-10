@@ -8,43 +8,56 @@ blueprint:
     **Template Variables:**
     - `name` — backup name configured below
     - `password` — backup password configured below
+    - `encrypted` — encrypted state configured below
     - `keep_days` — days the backup is kept for based on the current backup type
     - `backup_type` — current schedule being created, e.g., `daily`, `weekly`, `monthly`
 
     **Note: requires the [Auto Backup](https://jcwillox.github.io/hass-auto-backup) custom integration.**
   domain: automation
+  author: jcwillox
+  homeassistant:
+    min_version: 2024.6.0
   input:
-    backup_name:
-      name: "Name template used for backups"
-      default: |
-        {{ backup_type | title }}Backup: {{
-          now().strftime(
-            "%A, "
-            ~ iif(backup_type == "hourly", "%-I:%M %p, ", "")
-            ~ "%B %-d, %Y"
-          )
-        }}
-        {# HourlyBackup: Monday, 3:04 PM, January 2, 2006 #}
-        {# DailyBackup: Monday, January 2, 2006 #}
-      selector:
-        template:
+    name_section:
+      name: Name template
+      icon: mdi:rename-box
+      description: Override the name template used for backups
+      collapsed: true
+      input:
+        backup_name:
+          name: "Name template used for backups"
+          description: |
+            Default name format is `DailyBackup: Monday, January 2, 2006`, or if you enable 3-hourly backups in the advanced options it will use `HourlyBackup: Monday, 3:04 PM, January 2, 2006` for that type.
+
+            If you are not using 3-hourly backups, then the template can just be `{{ backup_type | title }}Backup: {{ now().strftime("%A, %B %-d, %Y") }}`.
+          default: |
+            {{ backup_type | title }}Backup: {{
+              now().strftime(
+                "%A, "
+                ~ iif(backup_type == "hourly", "%-I:%M %p, ", "")
+                ~ "%B %-d, %Y"
+              )
+            }}
+          selector:
+            template:
     backup_time:
       name: "Time of day to create backups"
       default: "02:30:00"
       selector:
         time:
+    encrypted:
+      name: Encrypted
+      description: |
+        Use Home Assistant built-in encryption key as the password, if disabled backups will be unencrypted.
+      default: false
+      selector:
+        boolean: {}
     backup_password:
       name: "Backup Password (Optional)"
       default: ""
       selector:
         text:
           type: password
-    enable_hourly:
-      name: "Enable: Hourly Backups"
-      description: "Create a backup every 3 hours and store for 2 days"
-      default: false
-      selector:
-        boolean:
     enable_daily:
       name: "Enable: Daily Backups"
       description: "Create a backup each day and store for a week"
@@ -69,41 +82,55 @@ blueprint:
       default: true
       selector:
         boolean:
+    advanced_section:
+      name: Advanced Options
+      icon: mdi:cog
+      description: "Options for advanced users, including the ability to enable 3-hourly backups."
+      collapsed: true
+      input:
+        enable_hourly:
+          name: "Enable: Hourly Backups"
+          description: "Create a backup every 3 hours and store for 2 days"
+          default: false
+          selector:
+            boolean:
+        use_action_hourly:
+          name: "Use Backup Action for Hourly Backups Only"
+          description: "Otherwise, it will be used for all backup types"
+          default: true
+          selector:
+            boolean:
 
-    use_action_hourly:
-      name: "Use Backup Action for Hourly Backups Only"
-      description: "Otherwise, it will be used for all backup types"
-      default: true
-      selector:
-        boolean:
+        backup_action:
+          name: "Backup Action (Optional)"
+          description: |
+            Optionally override the built-in backup action with a custom action, designed to allow greater control over what is included in each backup.
 
-    backup_action:
-      name: "Backup Action (Optional)"
-      description: |
-        Optionally override the built-in backup action with a custom action, designed to allow greater control over what is included in each backup.
+            By default this only overrides the 3-hourly backups, so that they only include the configuration.
+          default:
+            - action: auto_backup.backup
+              metadata: {}
+              data:
+                name: "{{ name }}"
+                encrypted: "{{ encrypted }}"
+                password: "{{ password }}"
+                keep_days: "{{ keep_days }}"
+                include_folders:
+                  - config
+          selector:
+            action:
 
-        By default this only overrides the 3-hourly backups, so that they only include the configuration.
-      default:
-        - service: auto_backup.backup
-          data:
-            name: "{{ name }}"
-            password: "{{ password }}"
-            keep_days: "{{ keep_days }}"
-            include_folders:
-              - config
-      selector:
-        action:
-
-    condition:
-      name: Condition (Optional)
-      description: Condition to test before any action
-      default: []
-      selector:
-        action:
+        condition:
+          name: Condition (Optional)
+          description: Condition to test before any action
+          default: []
+          selector:
+            action: {}
 
 mode: single
 
 variables:
+  encrypted: !input encrypted
   password: !input backup_password
   enable_hourly: !input enable_hourly
   enable_daily: !input enable_daily
@@ -151,6 +178,7 @@ action:
                     service: auto_backup.backup
                     data:
                       name: "{{ name }}"
+                      encrypted: "{{ encrypted }}"
                       password: "{{ password }}"
                       keep_days: "{{ keep_days }}"
 
@@ -199,6 +227,7 @@ action:
             service: auto_backup.backup
             data:
               name: "{{ name }}"
+              encrypted: "{{ encrypted }}"
               password: "{{ password }}"
               keep_days: "{{ keep_days }}"
               include_folders:
