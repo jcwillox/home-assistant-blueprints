@@ -1,3 +1,10 @@
+# /// script
+# dependencies = [
+#   "md-template[natsort]>=0.2.1",
+#   "PyYAML>=6.0.2",
+# ]
+# ///
+
 import urllib.parse
 from pathlib import Path
 from typing import Iterable
@@ -29,7 +36,7 @@ class BlueprintTemplate(TableTemplate):
             f"[**{name}**]({path.as_posix()})\n{desc}",
             IMPORT_BADGE.format(
                 urllib.parse.quote(
-                    f"https://raw.githubusercontent.com/{self.repository.owner}/{self.repository.name}/{self.repository.branch}/{path.as_posix()}"
+                    f"https://github.com/{self.repository.owner}/{self.repository.name}/blob/{self.repository.branch}/{path.as_posix()}"
                 )
             ),
         ]
