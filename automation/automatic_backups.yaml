@@ -58,6 +58,12 @@ blueprint:
       selector:
         text:
           type: password
+    backup_location:
+      name: "Backup Location"
+      description: "Set the backup location (needs to be added under 'Settings > System > Storage > Network Storage')"
+      default: "/backup"
+      selector:
+        backup_location:
     enable_daily:
       name: "Enable: Daily Backups"
       description: "Create a backup each day and store for a week"
@@ -112,6 +118,7 @@ blueprint:
               metadata: {}
               data:
                 name: "{{ name }}"
+                location: "{{ location }}"
                 encrypted: "{{ encrypted }}"
                 password: "{{ password }}"
                 keep_days: "{{ keep_days }}"
@@ -131,6 +138,7 @@ mode: single
 
 variables:
   encrypted: !input encrypted
+  location: !input backup_location
   password: !input backup_password
   enable_hourly: !input enable_hourly
   enable_daily: !input enable_daily
@@ -178,6 +186,7 @@ action:
                     service: auto_backup.backup
                     data:
                       name: "{{ name }}"
+                      location: "{{ location }}"
                       encrypted: "{{ encrypted }}"
                       password: "{{ password }}"
                       keep_days: "{{ keep_days }}"
@@ -227,6 +236,7 @@ action:
             service: auto_backup.backup
             data:
               name: "{{ name }}"
+              location: "{{ location }}"
               encrypted: "{{ encrypted }}"
               password: "{{ password }}"
               keep_days: "{{ keep_days }}"
